@@ -1,91 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>影像辨識 (MobileNet)</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      height: 100vh;
-      margin: 0;
-    }
-    #image {
-      max-width: 100%;
-      max-height: 400px;
-      margin-top: 20px;
-      display: none;
-    }
-    #result {
-      margin-top: 20px;
-      font-size: 18px;
-      text-align: center;
-    }
-    #upload, #reload {
-      margin-top: 20px;
-    }
-  </style>
-</head>
-<body>
-  <h1>請上傳圖片</h1>
-  <input type="file" id="upload" accept="image/*" />
-  <img id="image" src="" alt="Uploaded Image" />
-  <button id="reload" style="display:none;">重新上傳</button>
-  <div id="result"></div>
-
-  <script>
-    let model;
-    const resultElement = document.getElementById("result");
-    const imgElement = document.getElementById("image");
-    const uploadInput = document.getElementById("upload");
-    const reloadButton = document.getElementById("reload");
-
-    async function loadModel() {
-      resultElement.innerHTML = "<p>模型加載中...</p>";
-      model = await mobilenet.load();
-      resultElement.innerHTML = "<p>模型加載完成，請上傳圖片</p>";
-    }
-
-    uploadInput.addEventListener("change", async (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          imgElement.src = e.target.result;
-          imgElement.style.display = "block";
-          reloadButton.style.display = "block";
-          resultElement.innerHTML = "<p>辨識中...</p>";
-
-          imgElement.onload = async () => {
-            await predict(imgElement);
-          };
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-
-    reloadButton.addEventListener("click", () => {
-      uploadInput.value = "";
-      imgElement.style.display = "none";
-      reloadButton.style.display = "none";
-      resultElement.innerHTML = "<p>請上傳圖片</p>";
-    });
-
-    async function predict(imageElement) {
-      const predictions = await model.classify(imageElement);
-      resultElement.innerHTML = "<h3>辨識結果：</h3>" + predictions
-        .slice(0, 3) // 取前三個結果
-        .map(pred => `<p>${pred.className} - ${Math.round(pred.probability * 100)}%</p>`)
-        .join("");
-    }
-
-    loadModel();
-  </script>
-</body>
+<html>
+    <head>
+        // 網頁的標籤
+        <title>113年(304實驗室)專題</title>
+    </head>
+    <body>    
+        <h1>請輸入欲辨識的圖片</h1>
+        <p>段落</p>
+        <p>段落</p>
+    </body>
 </html>
