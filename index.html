@@ -50,6 +50,7 @@
       resultElement.innerHTML = "<p>模型加載中...</p>";
       // 請將這裡的路徑替換為你的模型URL
       model = await tf.loadLayersModel('https://raw.githubusercontent.com/lai-weipeng/-/refs/heads/main/model.json');
+
       resultElement.innerHTML = "<p>模型加載完成，請上傳圖片</p>";
     }
 
@@ -81,10 +82,11 @@
     async function predict(imageElement) {
       // 將圖片轉為Tensor，並進行適當的預處理
       const tensor = tf.browser.fromPixels(imageElement)
-        .resizeNearestNeighbor([224, 224]) // 根據模型要求調整大小
-        .toFloat()
-        .div(tf.scalar(255)) // 正規化（如果你的模型需要）
-        .expandDims(); // 增加批量維度
+  .resizeNearestNeighbor([224, 224])  // 根據模型要求調整大小
+  .toFloat()
+  .div(tf.scalar(255))  // 正規化
+  .expandDims(); // 增加批量維度
+
 
       // 使用模型進行預測
       const predictions = await model.predict(tensor);
