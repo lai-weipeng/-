@@ -177,7 +177,8 @@
       if (!model) {
         throw new Error("模型未正確加載");
       }
-
+      let tensor;
+      let predictions; // 提前声明变量，确保finally块可以访问
       resultElement.innerHTML = "<p class='loading'>處理圖片中...</p>";
       
       // 預處理圖像（根據模型要求調整）
