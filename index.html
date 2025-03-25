@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>影像辨識 (自訂模型)</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+  <title>植物病害辨識</title>
+  <!-- 主CDN + 备用CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+  <script>
+    if (typeof tf === 'undefined') {
+      document.write('<script src="https://unpkg.com/@tensorflow/tfjs@3.18.0/dist/tf.min.js"><\/script>');
+    }
+  </script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -15,29 +20,68 @@
       flex-direction: column;
       height: 100vh;
       margin: 0;
+      background-color: #f5f5f5;
     }
     #image {
       max-width: 100%;
       max-height: 400px;
       margin-top: 20px;
       display: none;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
     #result {
       margin-top: 20px;
       font-size: 18px;
       text-align: center;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      min-width: 300px;
     }
     #upload, #reload {
       margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+    }
+    #upload:hover, #reload:hover {
+      background-color: #45a049;
+    }
+    h1 {
+      color: #333;
+    }
+    .container {
+      text-align: center;
+      padding: 20px;
+    }
+    .loading {
+      color: #666;
+      font-style: italic;
+    }
+    .error {
+      color: #d32f2f;
+    }
+    .retry-btn {
+      background-color: #f44336;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <h1>請上傳圖片</h1>
-  <input type="file" id="upload" accept="image/*" />
-  <img id="image" src="" alt="Uploaded Image" />
-  <button id="reload" style="display:none;">重新上傳</button>
-  <div id="result"></div>
+  <div class="container">
+    <h1>請上傳植物葉片圖片</h1>
+    <input type="file" id="upload" accept="image/*" />
+    <img id="image" src="" alt="Uploaded Image" />
+    <button id="reload" style="display:none;">重新上傳</button>
+    <div id="result"></div>
+  </div>
 
   <script>
     let model;
@@ -45,32 +89,81 @@
     const imgElement = document.getElementById("image");
     const uploadInput = document.getElementById("upload");
     const reloadButton = document.getElementById("reload");
+    let modelLoadAttempts = 0;
+    const MAX_LOAD_ATTEMPTS = 3;
+
+    // 定義類別標籤
+    const CLASSES = {
+      0: '蘋果黑星病', 1: '蘋果黑腐病', 2: '蘋果銹病', 3: '健康蘋果葉片'
+    };
+
+    // 模型源列表（主源+备用源）
+    const MODEL_SOURCES = [
+      'https://raw.githack.com/lai-weipeng/-/raw/main/model.json',
+      'https://cdn.jsdelivr.net/gh/lai-weipeng/-/model.json'
+    ];
 
     async function loadModel() {
-      resultElement.innerHTML = "<p>模型加載中...</p>";
-      // 請將這裡的路徑替換為你的模型URL
-      model = await tf.loadLayersModel('https://raw.githubusercontent.com/lai-weipeng/-/main/model.json');
+      modelLoadAttempts++;
+      resultElement.innerHTML = `<p class='loading'>模型加載中... (嘗試 ${modelLoadAttempts}/${MAX_LOAD_ATTEMPTS})</p>`;
+      
+      try {
+        const source = MODEL_SOURCES[modelLoadAttempts % MODEL_SOURCES.length];
+        console.log(`嘗試從 ${source} 加載模型`);
+        
+        model = await tf.loadGraphModel(source, {
+          onProgress: (progress) => {
+            resultElement.innerHTML = `<p class='loading'>模型加載中... ${Math.round(progress * 100)}%</p>`;
+          }
+        });
 
+        // 驗證模型輸入
+        console.log("模型輸入信息:", model.inputs);
+        if (!model.inputs || model.inputs.length === 0) {
+          throw new Error("模型輸入信息無效");
+        }
 
-      resultElement.innerHTML = "<p>模型加載完成，請上傳圖片</p>";
+        resultElement.innerHTML = "<p>模型加載完成，請上傳圖片</p>";
+        console.log("模型加載成功，輸入節點:", model.inputs[0].name);
+      } catch (error) {
+        console.error(`模型加載失敗 (嘗試 ${modelLoadAttempts}):`, error);
+        
+        if (modelLoadAttempts < MAX_LOAD_ATTEMPTS) {
+          setTimeout(loadModel, 2000); // 2秒後重試
+        } else {
+          showError(`無法載入模型: ${error.message}`, true);
+        }
+      }
+    }
+
+    function showError(message, showRetry = false) {
+      resultElement.innerHTML = `
+        <p class='error'>${message}</p>
+        ${showRetry ? '<button class="retry-btn" onclick="window.location.reload()">重新載入頁面</button>' : ''}
+      `;
     }
 
     uploadInput.addEventListener("change", async (event) => {
       const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          imgElement.src = e.target.result;
-          imgElement.style.display = "block";
-          reloadButton.style.display = "block";
-          resultElement.innerHTML = "<p>辨識中...</p>";
+      if (!file) return;
 
-          imgElement.onload = async () => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imgElement.src = e.target.result;
+        imgElement.style.display = "block";
+        reloadButton.style.display = "block";
+        resultElement.innerHTML = "<p class='loading'>辨識中...</p>";
+
+        imgElement.onload = async () => {
+          try {
             await predict(imgElement);
-          };
+          } catch (error) {
+            console.error("預測過程中發生錯誤:", error);
+            showError(`預測錯誤: ${error.message}`);
+          }
         };
-        reader.readAsDataURL(file);
-      }
+      };
+      reader.readAsDataURL(file);
     });
 
     reloadButton.addEventListener("click", () => {
@@ -81,29 +174,61 @@
     });
 
     async function predict(imageElement) {
-      // 將圖片轉為Tensor，並進行適當的預處理
-      const tensor = tf.browser.fromPixels(imageElement)
-  .resizeNearestNeighbor([224, 224])  // 根據模型要求調整大小
-  .toFloat()
-  .div(tf.scalar(255))  // 正規化
-  .expandDims(); // 增加批量維度
+      if (!model) {
+        throw new Error("模型未正確加載");
+      }
 
-
-      // 使用模型進行預測
-      const predictions = await model.predict(tensor);
+      resultElement.innerHTML = "<p class='loading'>處理圖片中...</p>";
       
-      // 假設你的模型輸出是一個類別的機率分布
-      const topPredictions = Array.from(predictions.dataSync())
-        .map((value, index) => ({ className: `Class ${index}`, probability: value }))
-        .sort((a, b) => b.probability - a.probability)
-        .slice(0, 3); // 取前三個結果
+      // 預處理圖像（根據模型要求調整）
+      const tensor = tf.browser.fromPixels(imageElement)
+        .resizeBilinear([224, 224])  // 直接調整到模型輸入尺寸
+        .toFloat()
+        .div(tf.scalar(255))  // 正規化到[0,1]
+        .sub(tf.tensor1d([0.485, 0.456, 0.406]).reshape([1, 1, 3]))  // 減均值
+        .div(tf.tensor1d([0.229, 0.224, 0.225]).reshape([1, 1, 3]))  // 除標準差
+        .expandDims();  // 增加批次維度
 
-      resultElement.innerHTML = "<h3>辨識結果：</h3>" + topPredictions
-        .map(pred => `<p>${pred.className} - ${Math.round(pred.probability * 100)}%</p>`)
-        .join("");
+      try {
+        resultElement.innerHTML = "<p class='loading'>進行預測中...</p>";
+        
+        // 使用正確的輸入節點名稱 "input:0"
+        const predictions = await model.executeAsync({'input:0': tensor});
+        
+        // 處理預測結果
+        const probabilities = tf.softmax(predictions).dataSync();
+        const topPredictions = Array.from(probabilities)
+          .map((prob, idx) => ({ class: CLASSES[idx] || idx, probability: prob }))
+          .sort((a, b) => b.probability - a.probability);
+
+        // 顯示結果
+        resultElement.innerHTML = `
+          <h3>辨識結果：</h3>
+          <p><strong>${topPredictions[0].class}</strong> (${(topPredictions[0].probability * 100).toFixed(2)}%)</p>
+          <h3>所有類別：</h3>
+          ${topPredictions.map(p => `
+            <p>${p.class}: ${(p.probability * 100).toFixed(2)}%</p>
+          `).join('')}
+        `;
+      } finally {
+        // 確保釋放記憶體
+        tensor.dispose();
+        if (predictions) {
+          predictions.dispose();
+        }
+      }
     }
 
-    loadModel();
+    // 初始化
+    tf.setBackend('webgl')
+      .then(() => {
+        console.log("使用WebGL後端");
+        loadModel();
+      })
+      .catch(err => {
+        console.log("使用CPU後端:", err);
+        loadModel();
+      });
   </script>
 </body>
 </html>
