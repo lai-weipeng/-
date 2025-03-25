@@ -186,13 +186,13 @@
     
     // 預處理圖像（根據模型要求調整）
     tensor = tf.browser.fromPixels(imageElement)
-      .resizeBilinear([224, 224])
-      .toFloat()
-      .div(tf.scalar(255))
-      .sub(tf.tensor1d([0.485, 0.456, 0.406]).reshape([1, 1, 3]))
-      .div(tf.tensor1d([0.229, 0.224, 0.225]).reshape([1, 1, 3]))
-      .expandDims();
-
+      .resizeBilinear([224, 224])  // 調整大小為224x224
+      .toFloat()                   // 轉換為浮點數
+      .div(tf.scalar(255))         // 歸一化到0-1
+      .sub(tf.tensor1d([0.485, 0.456, 0.406]).reshape([1, 1, 3]))  // ImageNet均值歸一化
+      .div(tf.tensor1d([0.229, 0.224, 0.225]).reshape([1, 1, 3]))  // ImageNet標準差歸一化
+      .expandDims()                // 添加批次維度 [1,224,224,3]
+      .transpose([0, 3, 1, 2]);    // 調整維度順序為 [1,3,224,224]
     resultElement.innerHTML = "<p class='loading'>進行預測中...</p>";
     
     // 使用正確的輸入節點名稱 "input:0"
