@@ -160,15 +160,15 @@
             messages: [
               {
                 role: "system",
-                content: "你是一個植物病害助手，只能用簡單中文回覆，請用500字以上完整回答，不准省略細節，也不準使用不確定語氣。"
+                content: "你是一個植物病害助手，只能用簡單中文回覆，請用500字完整回答，不準使用不確定語氣。"
               },
               {
                 role: "user",
                 content: `不用解釋「${diseaseName}」，只給出治療方法及如何預防。`
               }
             ],
-            temperature: 0.3,
-            max_tokens: 800
+            temperature: 0.5,
+            max_tokens: 2000
           })
         });
 
