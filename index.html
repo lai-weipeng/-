@@ -8,21 +8,29 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      height: 100vh;
-      margin: 0;
-      background-color: #f5f5f5;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 40px 0;
+    min-height: 100vh;
+    background-color: #f5f5f5;
+    }
+
+    .container {
+    text-align: center;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    width: 90%;
+    margin: 0 auto;
     }
 
     #image {
+      display: block;
+      margin: 20px auto 0 auto;
       max-width: 100%;
       max-height: 400px;
-      margin-top: 20px;
-      display: none;
       border-radius: 8px;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
@@ -51,6 +59,11 @@
       transition: background-color 0.3s;
     }
 
+    #reload {
+      display: block;
+      margin: 20px auto 0 auto;
+    }
+
     #upload:hover,
     #reload:hover {
       background-color: #45a049;
@@ -58,11 +71,6 @@
 
     h1 {
       color: #333;
-    }
-
-    .container {
-      text-align: center;
-      padding: 20px;
     }
 
     .loading {
@@ -78,6 +86,26 @@
       background-color: #f44336;
       margin-top: 10px;
     }
+
+    .loader {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #4CAF50;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
   </style>
 </head>
 
@@ -86,7 +114,7 @@
     <h1>植物病害辨識系統</h1>
     <p>請上傳植物葉片圖片進行病害檢測</p>
     <input type="file" id="upload" accept="image/*" />
-    <img id="image" src="" alt="Uploaded Image" />
+    <img id="image" src="" alt="" />
     <button id="reload" style="display:none;">重新上傳</button>
     <div id="result">準備就緒，請上傳圖片...</div>
   </div>
@@ -129,7 +157,7 @@
         imgElement.src = e.target.result;
         imgElement.style.display = "block";
         reloadButton.style.display = "block";
-        resultElement.innerHTML = "<p class='loading'>辨識中...</p>";
+        resultElement.innerHTML = "<div class='loader'></div><p class='loading'>圖片載入中...</p>";
 
         imgElement.onload = async () => {
           try {
@@ -160,7 +188,7 @@
             messages: [
               {
                 role: "system",
-                content: "你是一個植物病害助手，只能用簡單中文回覆，請用500字完整回答，不準使用不確定語氣。"
+                content: "你是一個植物病害助手，只能用簡單中文回覆，請用500字完整回答，不準使用不確定語氣。回答內容不要包含任何 HTML 標籤，請用換行符號分段來美化內容。"
               },
               {
                 role: "user",
@@ -192,12 +220,12 @@
         .transpose([0, 3, 1, 2]);
 
       try {
-        resultElement.innerHTML = "<p class='loading'>辨識植物種類中...</p>";
+        resultElement.innerHTML = `<div class='loader'></div><p class='loading'>辨識植物種類中...</p>`;
         const speciesPred = await speciesModel.executeAsync({ 'input:0': tensor });
         const speciesIdx = tf.argMax(speciesPred, 1).dataSync()[0];
         const species = SPECIES_CLASSES[speciesIdx];
 
-        resultElement.innerHTML = `<p class='loading'>判斷為 <strong>${species}</strong>，正在辨識病害...</p>`;
+        resultElement.innerHTML = `<div class='loader'></div><p class='loading'></strong>正在辨識病害中...</p>`;
 
         if (!diseaseModels[species]) {
           diseaseModels[species] = await tf.loadGraphModel(DISEASE_MODEL_URLS[species]);
@@ -208,10 +236,17 @@
         const bestIdx = tf.argMax(probabilities).dataSync()[0];
         const disease = DISEASE_CLASSES[species][bestIdx];
 
-        resultElement.innerHTML = `<h3>辨識結果僅供參考：</h3><p><strong>${disease}</strong></p><p class='loading'>取得建議中...</p>`;
+        resultElement.innerHTML = `<h3>辨識結果：</h3><p><strong>${disease}</strong></p><div class='loader'></div><p class='loading'>產生建議中...</p>`;
 
         const gptReply = await fetchChatGPT(disease);
-        resultElement.innerHTML += `<p>${gptReply}</p>`;
+        const safeText = gptReply.replace(/\n/g, "<br>");
+        resultElement.innerHTML = `
+        <h3>辨識結果：</h3>
+        <p><strong>${disease}</strong></p>
+        <p>${safeText}</p>
+        <h3>辨識結果僅供參考</h3>
+        `;
+
       } catch (err) {
         showError("預測錯誤：" + err.message);
       } finally {
@@ -226,7 +261,7 @@
       } catch (err) {
         console.log("使用CPU後端:", err);
       }
-      resultElement.innerHTML = "<p class='loading'>正在加載植物種類模型...</p>";
+      resultElement.innerHTML = "<div class='loader'></div><p class='loading'>正在加載植物種類模型...</p>";
       try {
         speciesModel = await tf.loadGraphModel(SPECIES_MODEL_URL);
         resultElement.innerHTML = "<p>模型加載完成，請上傳圖片</p>";
